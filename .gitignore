@@ -1,0 +1,20 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Compiled class files
+*.class
+
+# Logs
+*.log
+
+# Build output
+/out/
+build/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Ignore environment configs
+.env
