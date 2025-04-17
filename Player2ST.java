@@ -6,39 +6,24 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.io.*;
 
 import java.net.Socket;
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 
-// ✅ Step 1: Confirm PlayerData Object is Created on Player2ST
-// - Initialize PlayerData with user ID, username, and ELO rating
-// - Print out all values to confirm correct creation
-
-// ✅ Step 2: Confirm PlayerData is Sent to Server
-// - Ensure sendPlayerData() actually sends the object using ObjectOutputStream
-// - Print a success message after sending
-
-// ✅ Step 3: Confirm PlayerData is Received by Server
-// - Read the PlayerData object from ObjectInputStream on the server side
-// - Print out received values to verify successful transmission
-
-// ✅ Step 4: Store PlayerData in an Array (Matchmaking Queue)
-// - Use an ArrayList to store PlayerData for matchmaking
-// - Ensure new players are properly added to the queue
 
 public class Player2ST extends Application {
 
     private static final int SHIFT_AMOUNT = 100;
-    private int width = 200, height = 400;
+    private int width = 400, height = 800;
 
-    private TextArea message, textGridMessage, testText;
+    private TextArea message, testText;
     private Button startb00;
     private Button startChess;
     private Button startCheckers;
@@ -55,8 +40,7 @@ public class Player2ST extends Application {
     private char[][] server2dChar;
     private int maxTurns;
     private int turnsMade;
-    private int myPoints;
-    private int enemyPoints;
+
     private boolean buttonsEnabled;
     private boolean gameIsActive;
     private int gameServerPort;
@@ -64,6 +48,10 @@ public class Player2ST extends Application {
     private Stage primaryStage;
     private String gameMode;
 
+    private PracticeGameObj practiceGameObj;
+    private TextArea chatArea;
+    private Button sendchat;
+    private List<Button> gameButtons = new ArrayList<>();
     PlayerData playerData;
 
 
@@ -82,8 +70,6 @@ public class Player2ST extends Application {
             username.append(randomChar);
         }
 
-
-
         PlayerData playerData = new PlayerData(
                 rand.nextInt(100),
                 username.toString(),
@@ -93,19 +79,15 @@ public class Player2ST extends Application {
         return playerData;
     }
 
-
     public void playerMenu(Stage primaryStage) {
         // CHAT GTP TRANSLATED THIS FROM SWING TO JAVAFX
         primaryStage.setWidth(width);
         primaryStage.setHeight(height);
         primaryStage.setTitle("The Game Menu");
 
+
         // Initialize arrays and variables
-        values = new int[4];
-        server2dChar = new char[3][3];
         turnsMade = 0;
-        myPoints = 0;
-        enemyPoints = 0;
         gameIsActive = false;
         buttonsEnabled = false;
         gameMode = "na";
@@ -124,7 +106,6 @@ public class Player2ST extends Application {
             System.out.println("error");
         }
 
-
         // "Start Game" button
         //startb00 = new Button("Start Matchmaking");
         startChess = new Button("Start Chess");
@@ -132,44 +113,39 @@ public class Player2ST extends Application {
         startTictactoe = new Button("Start Tictactoe");
         startConnect4 = new Button("Start Connect4");
 
+       /* startb00 = new Button("Start b00");
+
+        startb00.setOnAction(e -> {
+            System.out.println("YOU PRESSED THE BUTTON");
+            hnadleB00Click();
+        });*/
+
         startChess.setOnAction(e -> {
             System.out.println("YOU PRESSED CHESS");
             playerData.setGameModeInterested("chess");
+            gameMode = "chess";
             matchmakingButtonPressed();
         });
         startCheckers.setOnAction(e -> {
             System.out.println("YOU PRESSED CHECKERS");
             playerData.setGameModeInterested("checkers");
+            gameMode = "checkers";
             matchmakingButtonPressed();
         });
-
         startTictactoe.setOnAction(e -> {
             System.out.println("YOU PRESSED TICTACTOE");
             playerData.setGameModeInterested("tictactoe");
+            gameMode = "tictactoe";
             matchmakingButtonPressed();
         });
         startConnect4.setOnAction(e -> {
             System.out.println("YOU PRESSED CONNECT4");
             playerData.setGameModeInterested("connect4");
+            gameMode = "connect4";
             matchmakingButtonPressed();
         });
 
         menuLayout.getChildren().addAll(startChess, startCheckers, startTictactoe, startConnect4, testText);
-
-
-
-
-
-        /*startb00.setOnAction(e -> {
-            System.out.println("YOU PRESSED THE BUTTON");
-
-            connectToSearchServer();   // Connect to the server
-            hnadleB00Click();
-            setUpLoadingScreen(primaryStage);
-        });*/
-
-
-
         //menuLayout.getChildren().addAll(startChess, testText);
 
         Scene menuScene = new Scene(menuLayout, width, height);
@@ -188,6 +164,7 @@ public class Player2ST extends Application {
         primaryStage.show();
         // end of CHAT GTP
     }
+
     public void matchmakingButtonPressed(){
         connectToSearchServer();   // Connect to the server
         hnadleB00Click();
@@ -197,7 +174,6 @@ public class Player2ST extends Application {
     private void setUpLoadingScreen(Stage primaryStage) {
         gameIsActive = true;
         primaryStage.setTitle("MATCHMAKING LOADING...");
-
         // Main layout
         VBox root = new VBox(15);
         root.setPadding(new Insets(20));
@@ -215,45 +191,191 @@ public class Player2ST extends Application {
         primaryStage.show();
     }
 
+
     private void setUpGameScene(Stage primaryStage) {
-        // CHAT GTP TRANSLTED THIS FROM SWING TO JAVAFX
-        gameIsActive = true;
-        primaryStage.setTitle(gameMode + " for Player #" + playerID);
+        primaryStage.setTitle("Game - Player #" + playerID);
+        Label title = new Label(gameMode.toUpperCase() + " GAME MODE");
+        title.setStyle("-fx-font-size: 26px; -fx-font-weight: bold;");
+
+
         VBox root = new VBox(10);
         root.setPadding(new Insets(15));
         root.setAlignment(Pos.CENTER);
-        message = new TextArea("Turn-based game");
+        root.getChildren().add(title);
+
+        gameButtons.clear(); // Avoid duplicates
+
+        message = new TextArea();
         message.setWrapText(true);
         message.setEditable(false);
         message.setMaxHeight(50);
         root.getChildren().add(message);
-        textGridMessage = new TextArea();
-        textGridMessage.setWrapText(true);
-        textGridMessage.setEditable(false);
-        textGridMessage.setMaxHeight(50);
-        root.getChildren().add(textGridMessage);
-        GridPane buttonGrid = new GridPane();
-        buttonGrid.setHgap(10);
-        buttonGrid.setVgap(10);
-        buttonGrid.setAlignment(Pos.CENTER);
-        b01 = new Button("1");
-        b02 = new Button("2");
-        b03 = new Button("3");
-        b04 = new Button("4");
-        b05 = new Button("5");
-        b06 = new Button("6");
-        b07 = new Button("7");
-        b08 = new Button("8");
-        b09 = new Button("9");
-        buttonGrid.addRow(0, b01, b02, b03);
-        buttonGrid.addRow(1, b04, b05, b06);
-        buttonGrid.addRow(2, b07, b08, b09);
-        setUpGameButtons();
-        root.getChildren().add(buttonGrid);
-        Scene gameScene = new Scene(root, width, height);
-        primaryStage.setScene(gameScene);
+
+        // === Game Grid ===
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setAlignment(Pos.CENTER);
+
+
+        if (gameMode.equals("tictactoe")) {
+            practiceGameObj = new PracticeGameObj(false, new char[3][3],"test" );
+            char[][] board = practiceGameObj.getBoard();
+            for (int row = 0; row < 3; row++) {
+                for (int col = 0; col < 3; col++) {
+                    Button cell = new Button();
+                    cell.setPrefSize(60, 60);
+                    cell.setStyle("-fx-font-size: 24px;");
+                    gameButtons.add(cell);
+
+                    int r = row;
+                    int c = col;
+
+                    cell.setText((board[r][c] == 'X' || board[r][c] == 'O') ? String.valueOf(board[r][c]) : "");
+
+                    cell.setOnAction(e -> {
+                        if (board[r][c] == '\0' && buttonsEnabled) {
+                            char symbol = (playerID == 1) ? 'X' : 'O';
+                            board[r][c] = symbol;
+                            cell.setText(String.valueOf(symbol));
+                            int cellNum = r * 3 + c + 1;
+                            practiceGameObj.setInputString(String.valueOf(cellNum));
+                            cscGS.sendPracticeGameObj();
+                            buttonsEnabled = false;
+                            toggleButtons();
+                            new Thread(this::updateTurn).start();
+                        }
+                    });
+
+                    grid.add(cell, c, r);
+                }
+            }
+        } else if (gameMode.equals("connect4")) {
+            practiceGameObj = new PracticeGameObj(false, new char[6][7], "connect4");
+
+            root.setPadding(new Insets(15));
+            root.setAlignment(Pos.CENTER);
+            gameButtons.clear();
+
+            message = new TextArea();
+            message.setWrapText(true);
+            message.setEditable(false);
+            message.setMaxHeight(50);
+            root.getChildren().add(message);
+
+            // === Top Row: Drop Buttons ===
+            HBox dropButtons = new HBox(10);
+            dropButtons.setAlignment(Pos.CENTER);
+
+            grid.setHgap(5);
+            grid.setVgap(5);
+            grid.setAlignment(Pos.CENTER);
+
+            char[][] board = practiceGameObj.getBoard();
+
+            // 7 Drop Buttons
+            for (int col = 0; col < 7; col++) {
+                int finalCol = col;
+                Button drop = new Button("↓");
+                drop.setPrefSize(40, 40);
+                drop.setStyle("-fx-font-size: 16px;");
+                drop.setOnAction(e -> {
+                    if (!buttonsEnabled) return;
+
+                    int rowToDrop = findAvailableRow(board, finalCol);
+                    if (rowToDrop != -1) {
+                        char symbol = (playerID == 1) ? 'X' : 'O';
+                        board[rowToDrop][finalCol] = symbol;
+                        practiceGameObj.setInputString(rowToDrop + "," + finalCol);
+                    }
+                });
+                dropButtons.getChildren().add(drop);
+            }
+            root.getChildren().add(dropButtons);
+
+            // === Game Grid ===
+            for (int row = 0; row < 6; row++) {
+                for (int col = 0; col < 7; col++) {
+                    Button cell = new Button();
+                    cell.setPrefSize(60, 60);
+                    cell.setStyle("-fx-font-size: 20px;");
+                    gameButtons.add(cell);
+                    grid.add(cell, col, row);
+                }
+            }
+            root.getChildren().add(grid);
+
+            // === Chat Section (shared across game modes) ===
+            Label chatLabel = new Label("Chat with opponent:");
+            chatArea = new TextArea();
+            chatArea.setEditable(false);
+            chatArea.setWrapText(true);
+            chatArea.setPrefHeight(150);
+
+            TextField chatInput = new TextField();
+            chatInput.setPromptText("Type your message...");
+            chatInput.setPrefWidth(300);
+
+            sendchat = new Button("Send");
+            sendchat.setOnAction(e -> {
+                String msg = chatInput.getText().trim();
+                if (!msg.isEmpty()) {
+                    String formatted = "player" + playerID + ": " + msg + "\n";
+                    chatArea.appendText(formatted);
+                    chatInput.clear();
+                    if (cscGS != null) {
+                        cscGS.sendChat(msg);
+                    }
+                }
+            });
+
+            HBox chatInputBox = new HBox(10, chatInput, sendchat);
+            chatInputBox.setAlignment(Pos.CENTER);
+            chatInputBox.setPadding(new Insets(10));
+            root.getChildren().addAll(chatLabel, chatArea, chatInputBox);
+
+            Scene scene = new Scene(root, 500, 600);
+            primaryStage.setScene(scene);
+            primaryStage.show();
+        }
+
+        root.getChildren().add(grid);
+
+        // === Chat UI ===
+        Label chatLabel = new Label("Chat with opponent:");
+        chatArea = new TextArea();
+        chatArea.setEditable(false);
+        chatArea.setWrapText(true);
+        chatArea.setPrefHeight(150);
+
+        TextField chatInput = new TextField();
+        chatInput.setPromptText("Type your message...");
+        chatInput.setPrefWidth(300);
+
+        sendchat = new Button("Send");
+        sendchat.setOnAction(e -> {
+            String msg = chatInput.getText().trim();
+            if (!msg.isEmpty()) {
+                String formatted = "player" + playerID + ": " + msg + "\n";
+                chatArea.appendText(formatted);
+                chatInput.clear();
+                if (cscGS != null) {
+                    cscGS.sendChat(msg);
+                }
+            }
+        });
+
+        HBox chatInputBox = new HBox(10, chatInput, sendchat);
+        chatInputBox.setAlignment(Pos.CENTER);
+        chatInputBox.setPadding(new Insets(10));
+        root.getChildren().addAll(chatLabel, chatArea, chatInputBox);
+
+        // === Final scene ===
+        Scene scene = new Scene(root, 400, 550);
+        primaryStage.setScene(scene);
         primaryStage.show();
-        // END of CHAT GTP
+
+        // === Turn setup ===
         if (playerID == 1) {
             message.setText("You are player 1, you go first");
             otherPlayerID = 2;
@@ -262,11 +384,18 @@ public class Player2ST extends Application {
             message.setText("You are player 2, wait for your turn");
             otherPlayerID = 1;
             buttonsEnabled = false;
-            // Start waiting for the opponent in a separate thread
-            Thread t = new Thread(this::updateTurn);
-            t.start();
+            new Thread(this::updateTurn).start();
         }
         toggleButtons();
+    }
+
+    private int findAvailableRow(char[][] board, int col) {
+        for (int row = board.length - 1; row >= 0; row--) {
+            if (board[row][col] == '\0') {
+                return row;
+            }
+        }
+        return -1; // No available row in this column
     }
 
     /**
@@ -296,8 +425,8 @@ public class Player2ST extends Application {
     }
 
     private void handleButtonClick(String strBNum) {
-        message.setText("You clicked button #" + strBNum + " now wait for next player's turn");
-        textGridMessage.setText(server2dCharToString());
+        practiceGameObj.setInputString(strBNum);
+        message.setText("You clicked button #" + practiceGameObj.getInputString() + " now wait for next player's turn");
 
         turnsMade++;
         System.out.println("Turns made: " + turnsMade);
@@ -307,33 +436,23 @@ public class Player2ST extends Application {
 
         // Send button to server
         if (cscGS != null) {
-            cscGS.sendButtonNum(strBNum);
+            cscGS.sendPracticeGameObj();
         }
 
         // If P2 hits max turns, check winner
         if (playerID == 2 && turnsMade == maxTurns) {
-            System.out.println("win condition?");
             //checkWinner();
         } else {
             // Otherwise wait for the opponent
-
             new Thread(this::updateTurn).start();
         }
     }
 
-    /**
-     * Enables or disables the 9 game buttons based on 'buttonsEnabled'.
-     */
+
     private void toggleButtons() {
-        b01.setDisable(!buttonsEnabled);
-        b02.setDisable(!buttonsEnabled);
-        b03.setDisable(!buttonsEnabled);
-        b04.setDisable(!buttonsEnabled);
-        b05.setDisable(!buttonsEnabled);
-        b06.setDisable(!buttonsEnabled);
-        b07.setDisable(!buttonsEnabled);
-        b08.setDisable(!buttonsEnabled);
-        b09.setDisable(!buttonsEnabled);
+        for (Button btn : gameButtons) {
+            btn.setDisable(!buttonsEnabled);
+        }
     }
 
     /**
@@ -351,6 +470,7 @@ public class Player2ST extends Application {
         }));
     }
     public void connectToGameServer() {
+        System.out.println("Connecting to Gserver...");
         cscGS = new CscToGameServer();
         System.out.println("Welcome to the game server");
 
@@ -362,14 +482,21 @@ public class Player2ST extends Application {
     }
     private void closeGameServerConnection() {
         try {
-            if (cscGS != null && cscGS.getSocket() != null && !cscGS.getSocket().isClosed()) {
-                cscGS.getSocket().close();
-                System.out.println("Game Server socket closed.");
+            if (cscGS != null) {
+                if (cscGS.getGameSocket() != null && !cscGS.getGameSocket().isClosed()) {
+                    cscGS.getGameSocket().close();
+                    System.out.println("Game socket closed.");
+                }
+                if (cscGS.getChatSocket() != null && !cscGS.getChatSocket().isClosed()) {
+                    cscGS.getChatSocket().close();
+                    System.out.println("Chat socket closed.");
+                }
             }
         } catch (IOException e) {
-            System.out.println("Error closing Game Server socket: " + e.getMessage());
+            System.out.println("Error closing sockets: " + e.getMessage());
         }
     }
+
     private void closeSearchServerConnection() {
         try {
             if (cscSS != null && cscSS.getSocket() != null && !cscSS.getSocket().isClosed()) {
@@ -380,144 +507,160 @@ public class Player2ST extends Application {
             System.out.println("Error closing Search Server socket: " + e.getMessage());
         }
     }
+    private void updateBoardFromPracticeObj() {
+        char[][] board = practiceGameObj.getBoard();
 
-    /**
-     * Wait for the opponent's move
-     */
-    public void updateTurn() {
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                int index = row * 3 + col;
+                Button cell = gameButtons.get(index);
 
-        String n = cscGS.receiveButtonNum();
-        message.setText("Your opponent clicked #" + n + ", now your turn");
-        textGridMessage.setText(server2dCharToString());
-
-        // Print 2D array from the server
-        for (char[] row : server2dChar) {
-            System.out.println(Arrays.toString(row));
-        }
-        // If P1 hits max turns, check winner
-        if (playerID == 1 && turnsMade == maxTurns) {
-            System.out.println("win condition?");
-            //checkWinner();
-        } else {
-            buttonsEnabled = true;
-        }
-        toggleButtons();
-    }
-
-    /**
-     * Checks who won or if it's a tie
-     */
-    private void checkWinner() {
-        buttonsEnabled = false;
-        // Compare 'myPoints' vs 'enemyPoints' if you actually tracked them
-        // Right now it's just a placeholder
-        if (myPoints > enemyPoints) {
-            message.setText("You won! You: " + myPoints + " points, Enemy: " + enemyPoints + " points");
-        } else if (myPoints < enemyPoints) {
-            message.setText("You lost! You: " + myPoints + " points, Enemy: " + enemyPoints + " points");
-        } else {
-            message.setText("It's a tie! Both have " + myPoints + " points.");
-        }
-        cscGS.closeConnection();
-    }
-
-    /**
-     * Converts server2dChar to a human-readable string
-     */
-    public String server2dCharToString() {
-        StringBuilder sb = new StringBuilder();
-        for (char[] row : server2dChar) {
-            sb.append("[");
-            for (char cell : row) {
-                sb.append("['").append(cell).append("'], ");
+                char val = board[row][col];
+                cell.setText((val == '\0') ? "" : String.valueOf(val));
             }
-            sb.setLength(sb.length() - 2); // remove trailing ", "
-            sb.append("]\n");
         }
-        return sb.toString();
+    }
+
+
+    public void updateTurn() {
+        cscGS.receivePracticeGameObj();
+
+        // Run all UI updates on the JavaFX thread
+        Platform.runLater(() -> {
+            updateBoardFromPracticeObj(); // updates board GUI
+            message.setText("Opponent clicked #" + practiceGameObj.getInputString() + ", your turn!");
+            buttonsEnabled = true;
+            toggleButtons();
+        });
     }
 
     /**
      * The networking client side
      */
     private class CscToGameServer {
-        private Socket socket;
-        private DataInputStream dataIn;
-        private DataOutputStream dataOut;
+        private Socket gameSocket;
+        private Socket chatSocket;
+
+        // Game stream: for game objects
+        private DataInputStream gameIn;
+        private DataOutputStream gameOut;
+        private ObjectOutputStream gameOutObj;
+        private ObjectInputStream gameInObj;
+
+        // Chat stream: for raw messages or chat objects
+        private ObjectOutputStream chatOutObj;
+        private ObjectInputStream chatInObj;
+
         public CscToGameServer() {
-            System.out.println("Client side connection -- GameServer");
+            System.out.println("Client side connection");
             try {
-                this.socket = new Socket(gameServerIP, 30001);
+                System.out.println("try:?");
+                gameSocket = new Socket(gameServerIP, 30001);
+                chatSocket = new Socket(gameServerIP, 30002);
+                gameIn = new DataInputStream(gameSocket.getInputStream());
 
-                dataOut = new DataOutputStream(socket.getOutputStream());
-                dataIn = new DataInputStream(socket.getInputStream());
+                gameOutObj = new ObjectOutputStream(gameSocket.getOutputStream());
+                gameInObj = new ObjectInputStream(gameSocket.getInputStream());
 
-                playerID = dataIn.readInt();
+                chatOutObj = new ObjectOutputStream(chatSocket.getOutputStream());
+                chatInObj = new ObjectInputStream(chatSocket.getInputStream());
+
+                System.out.println("istening?");
+                playerID = gameIn.readInt();
                 System.out.println("Player ID: " + playerID);
 
-                // Values to send over the network
-                maxTurns = dataIn.readInt() / 2;
-                System.out.println("maxTurns = " + maxTurns);
+                gameMode = gameIn.readUTF();
+                System.out.println("gameMode: " + gameMode);
 
-                gameMode = dataIn.readUTF();
-                System.out.println(gameMode);
 
-                // Read the 3x3 char array from the server
-                for (int i = 0; i < 3; i++) {
-                    for (int j = 0; j < 3; j++) {
-                        server2dChar[i][j] = dataIn.readChar();
-                    }
-                }
+                startChatListener();
+
             } catch (IOException e) {
                 System.out.println("IO exception from CSC constructor");
             }
-
         }
-        public void sendButtonNum(String strBNum) {
-            try {
-                // Send button as chars
-                dataOut.writeChars(strBNum);
-                dataOut.flush();
-            } catch (IOException e) {
-                System.out.println("IO exception in ClientSideConnection sendButtonNum");
-            }
-        }
-        public String receiveButtonNum() {
-            String str = "N"; // placeholder
-            try {
-                // read one char for the button number
 
-                str = String.valueOf(dataIn.readChar());
-                System.out.println("player #" + otherPlayerID + " clicked button #" + str);
+        private void startChatListener() {
+            new Thread(() -> {
+                while (true) {
+                    try {
+                        String receivedMsg = (String) chatInObj.readObject();
+                        System.out.println("Received chat: " + receivedMsg);
+                        if (playerID == 1){
+                            otherPlayerID = 2;
+                        }
+                        else{
+                            otherPlayerID = 1;
+                        }
+                        String formatted = "player" + otherPlayerID + ": " + receivedMsg + "\n";
 
-                // read updated board
-                for (int i = 0; i < 3; i++) {
-                    for (int j = 0; j < 3; j++) {
-                        server2dChar[i][j] = dataIn.readChar();
+                        Platform.runLater(() -> {
+                            chatArea.appendText(formatted);
+                        });
+
+                        // If using JavaFX, update the UI with Platform.runLater(...)
+                    } catch (IOException e) {
+                        System.out.println("IO exception receiving chat message");
+                        e.printStackTrace();
+                        break;
+                    } catch (ClassNotFoundException e) {
+                        System.out.println("Class not found");
+                        e.printStackTrace();
                     }
                 }
-
-            } catch (IOException e) {
-                System.out.println("IO exception in ClientSideConnection receiveButtonNum");
-            }
-            return str;
+            }).start();
         }
+
+        private void sendChat(String msg) {
+            try {
+                chatOutObj.writeObject(msg);
+                chatOutObj.flush();
+            } catch (IOException e) {
+                System.out.println("IO exception sending chat message");
+            }
+        }
+
+        public void sendPracticeGameObj(){
+            try {
+                gameOutObj.writeObject(practiceGameObj);
+                gameOutObj.flush();
+            } catch (IOException e) {
+                System.out.println("Error sending practice game obj: ");
+            }
+        }
+
+        public void receivePracticeGameObj(){
+            try {
+                System.out.println("Obj listening");
+                Object tempObj = gameInObj.readObject(); // vague object gets "catched first_
+                practiceGameObj = (PracticeGameObj) tempObj;
+                System.out.println("reciver buttom num" + practiceGameObj.getInputString());
+
+            } catch (IOException e){
+                System.out.println("Error receiving practice game obj: ");
+            } catch (ClassNotFoundException e) {
+                System.out.println("object class not found");
+            }
+        }
+
+
         public void closeConnection() {
             try {
-                socket.close();
+                gameInObj.close();
                 System.out.println("Closing connection");
             } catch (IOException e) {
                 System.out.println("IO exception in ClientSideConnection closeConnection");
             }
-
         }
-
-        public Socket getSocket() {
-            return socket;
+        public Socket getChatSocket() {
+            return chatSocket;
+        }
+        public Socket getGameSocket() {
+            return gameSocket;
         }
     }
 
-
+//------------CscToSearchServer-------------------CscToSearchServer-------------------CscToSearchServer---------------
     private class CscToSearchServer{
         private Socket socket;
         private DataInputStream dataIn;
@@ -528,8 +671,7 @@ public class Player2ST extends Application {
         public CscToSearchServer() {
             System.out.println("Client side connection -- SearchServer");
             try {
-                this.socket = new Socket("localhost", 30000);
-
+                this.socket = new Socket("54.86.250.96", 30000);
                 dataIn = new DataInputStream(socket.getInputStream());
                 dataOut = new DataOutputStream(socket.getOutputStream());
 
@@ -565,39 +707,14 @@ public class Player2ST extends Application {
                     gameServerIP = dataIn.readUTF();
                     System.out.println("Received GameServer IP Address: " + gameServerIP);
                     if(!Objects.equals(gameServerIP, "na")) {
-                        closeConnection();
+                        closeConnectionSearchS();
                         connectToGameServer();
 
                         // Chatgtp said u can so primary stage unless its with this
                         // Platform.runLater javaFX special thread
                         Platform.runLater(() -> {
                             if (primaryStage != null) {
-                                setUpGameScene(primaryStage);
-                            }
-                        });
-                    }
-
-                } catch (IOException e) {
-                    System.out.println("Error receiving port: " + e.getMessage());
-                }
-            });
-            portReceiver.start();
-        }
-
-        private void waitForGameServerPortThread() {
-            Thread portReceiver = new Thread(() -> {
-                try {
-                    // Block and wait until the port number arrives:
-                    gameServerPort = dataIn.readInt();
-                    System.out.println("Received GameServer port: " + gameServerPort);
-                    if(gameServerPort > 30000) {
-                        closeConnection();
-                        connectToGameServer();
-
-                        // Chatgtp said u can so primary stage unless its with this
-                        // Platform.runLater javaFX special thread
-                        Platform.runLater(() -> {
-                            if (primaryStage != null) {
+                                System.out.println("Primary stag?e");
                                 setUpGameScene(primaryStage);
                             }
                         });
@@ -611,10 +728,11 @@ public class Player2ST extends Application {
         }
 
 
-        public void closeConnection() {
+
+        public void closeConnectionSearchS() {
             try {
                 socket.close();
-                System.out.println("Closing connection");
+                System.out.println("Closing connection SearchS");
             } catch (IOException e) {
                 System.out.println("IO exception in ClientSideConnection closeConnection");
             }
